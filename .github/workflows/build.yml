@@ -160,21 +160,24 @@ jobs:
 
       - name: "[COMPILE] :: KERNEL_BUILD"
         run: |
-          mkdir -p ccache_bin
-          cat << 'EOF' > ccache_bin/clang
-          #!/bin/bash
-          ccache ${{ github.workspace }}/aosp-clang/bin/clang "$@"
-          EOF
-          chmod +x ccache_bin/clang
+          mkdir -p .bin
+          ln -s /usr/bin/ccache .bin/clang
+          ln -s /usr/bin/ccache .bin/clang++
           
-          export PATH="${{ github.workspace }}/ccache_bin:${{ github.workspace }}/aosp-clang/bin:$PATH"
+          export PATH="${{ github.workspace }}/.bin:${{ github.workspace }}/aosp-clang/bin:$PATH"
           export ARCH=arm64
           export SUBARCH=arm64
           
           make O=out ${DEFCONFIG}
           
           make -j$(nproc --all) O=out \
-            LLVM=1 LLVM_IAS=1 CC=clang \
+            CC=clang \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             Image.gz-dtb
