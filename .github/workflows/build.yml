@@ -81,12 +81,12 @@ jobs:
             variant: "MIUI"
             ksu: false
             patch_miui: true
-          - unit: "UNIT-02 (AOSP-MAMBOSU)"
-            variant: "AOSP-MAMBOSU"
+          - unit: "UNIT-02 (AOSP-KSU)"
+            variant: "AOSP-KSU"
             ksu: true
             patch_miui: false
-          - unit: "UNIT-03 (MIUI-MAMBOSU)"
-            variant: "MIUI-MAMBOSU"
+          - unit: "UNIT-03 (MIUI-KSU)"
+            variant: "MIUI-KSU"
             ksu: true
             patch_miui: true
 
@@ -128,13 +128,13 @@ jobs:
           ccache -o compression_level=1
           ccache -z
 
-      - name: "[MOD] :: MAMBOSU_INTEGRATION"
+      - name: "[MOD] :: KSU_INTEGRATION"
         if: matrix.ksu == true
         run: |
           echo "INITIATING MAMBOSU PROTOCOL ..."
           curl -LSs "https://raw.githubusercontent.com/RapliVx/KernelSU-Next/refs/heads/hookless/kernel/setup.sh" | bash -s hookless
 
-      - name: "[MOD] :: MAMBOSU_PURGE"
+      - name: "[MOD] :: KSU_PURGE"
         if: matrix.ksu == false
         run: |
           sed -i '/CONFIG_KSU/d' arch/arm64/configs/${{ env.DEFCONFIG }}
@@ -160,17 +160,24 @@ jobs:
 
       - name: "[COMPILE] :: KERNEL_BUILD"
         run: |
-          export PATH="${{ github.workspace }}/aosp-clang/bin:$PATH"
+          mkdir -p ccache_bin
+          cat << 'EOF' > ccache_bin/clang
+          #!/bin/bash
+          ccache ${{ github.workspace }}/aosp-clang/bin/clang "$@"
+          EOF
+          chmod +x ccache_bin/clang
+          
+          export PATH="${{ github.workspace }}/ccache_bin:${{ github.workspace }}/aosp-clang/bin:$PATH"
           export ARCH=arm64
           export SUBARCH=arm64
           
           make O=out ${DEFCONFIG}
           
           make -j$(nproc --all) O=out \
-            LLVM=1 LLVM_IAS=1 CC="ccache clang" \
+            LLVM=1 LLVM_IAS=1 CC=clang \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            Image.gz dtbo.img dtb.img
+            Image.gz-dtb
 
       - name: "[STATS] :: CCACHE_REPORT"
         run: ccache -s
@@ -179,10 +186,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.variant }}-unit
-          path: |
-            out/arch/arm64/boot/Image.gz
-            out/arch/arm64/boot/dtb.img
-            out/arch/arm64/boot/dtbo.img
+          path: out/arch/arm64/boot/Image.gz-dtb
           compression-level: 9
 
   human-instrumentality:
@@ -230,7 +234,7 @@ jobs:
                                         TQOSU                   
                                         YXXWX                   
           
-           ProjectEVA // MAMBOSU PROTOCOL
+           FranxxCORE // MAMBOSU PROTOCOL
            BY RapliVX
           EOF
           
@@ -238,9 +242,7 @@ jobs:
               VARIANT=$(basename "$DIR" -unit)
               echo "Packaging $VARIANT..."
               
-              cp -f $DIR/Image.gz AnyKernel3/
-              cp -f $DIR/dtb.img AnyKernel3/
-              cp -f $DIR/dtbo.img AnyKernel3/
+              cp -f $DIR/Image.gz-dtb AnyKernel3/
               
               cd AnyKernel3
               zip -r1 "../release_zips/${KERNEL_NAME}-${VARIANT}-${CODENAME}-$(date +'%Y%m%d').zip" * -x .git README.md
@@ -261,12 +263,12 @@ jobs:
             **Compiler:** ${{ needs.setup_env.outputs.clang_ver }}
             
             #### 📦 DEPLOYED UNITS:
-            | Variant | MamboSU | MIUI Patch |
+            | Variant | KSU | MIUI Patch |
             | :--- | :---: | :---: |
             | **AOSP** | ❌ | ❌ |
             | **MIUI** | ❌ | ✅ |
-            | **AOSP-MAMBOSU** | ✅ | ❌ |
-            | **MIUI-MAMBOSU** | ✅ | ✅ |
+            | **AOSP-KSU** | ✅ | ❌ |
+            | **MIUI-KSU** | ✅ | ✅ |
             
             *Synchronization Ratio: 400%*
         env:
